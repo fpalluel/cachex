@@ -35,6 +35,8 @@ defmodule Cachex.Policy.LRW do
   # compile our QLC match at runtime to avoid recalculating
   @qlc_match Query.raw(true, { :key, :touched })
 
+  def async?, do: false
+
   ####################
   # Policy Behaviour #
   ####################
@@ -174,8 +176,10 @@ defmodule Cachex.Policy.LRW do
   # size limits. The resulting amount of removed records is then offset against
   # the reclaim space, meaning that a positive result require us to carry out
   # further evictions manually down the chain.
-  defp calculate_poffset(reclaim_space, cache) when reclaim_space > 0,
-    do: reclaim_space - Cachex.purge!(cache)
+  defp calculate_poffset(reclaim_space, cache(name: name)) when reclaim_space > 0 do
+    count = :ets.select_delete(name, Cachex.Query.expired(true))
+    reclaim_space - count
+  end
 
   # Erases the least recently written records up to the offset limit.
   #
